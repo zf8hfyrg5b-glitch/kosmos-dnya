@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Космос дня</title>
+<meta name="description" content="Фото дня NASA: Млечный Путь и галактики за любую дату">
+<meta name="theme-color" content="#06080f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Космос дня">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+/* Одна колонка: шапка с датой → карточка фото → варианты → текст; снизу плавающая панель */
+:root {
+  --space: #06080f;      /* фон-космос */
+  --ink: #f2f4f8;        /* основной текст */
+  --mist: #aab1c2;       /* второстепенный */
+  --dim: #6b7386;        /* подписи */
+  --glow: #8fb4ff;       /* акцент: звёздно-голубой */
+  --panel: rgba(18, 22, 36, .72);
+  --line: rgba(255, 255, 255, .09);
+  --danger: #ff8a8a;
+  --font: -apple-system, "SF Pro Display", "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--space); color: var(--ink); font-family: var(--font); }
+body { min-height: 100%; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:focus-visible, a:focus-visible, .date-btn:focus-within { outline: 2px solid var(--glow); outline-offset: 3px; border-radius: 10px; }
+a { color: inherit; }
+
+/* размытый фон из самого фото */
+.backdrop { position: fixed; inset: -10%; z-index: 0; background-size: cover; background-position: center;
+  filter: blur(40px) brightness(.45) saturate(1.2); transform: scale(1.1); opacity: 0; transition: opacity .8s ease; }
+.backdrop.on { opacity: 1; }
+.shade { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(180deg, rgba(6,8,15,.55) 0%, rgba(6,8,15,0) 22%, rgba(6,8,15,0) 45%, rgba(6,8,15,.92) 75%, var(--space) 100%); }
+
+.app { position: relative; z-index: 1; max-width: 640px; margin: 0 auto;
+  padding-left: var(--gutter-l); padding-right: var(--gutter-r);
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px); }
+
+/* шапка */
+.top { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 4px; }
+.arrow { height: 44px; width: 44px; display: grid; place-items: center; font-size: 30px; line-height: 1; color: var(--mist); border-radius: 50%; }
+.arrow:active { background: var(--line); }
+.date-btn { position: relative; text-align: center; padding: 4px 0; }
+.date-btn .eyebrow { display: block; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); font-weight: 600; }
+.date-btn .date { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.01em; margin-top: 2px; }
+.date-btn .date::after { content: " ▾"; font-size: 13px; color: var(--dim); vertical-align: 2px; }
+.date-btn input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font-size: 16px; }
+
+/* карточка фото */
+.stage { margin-top: 14px; position: relative; }
+.card { position: relative; border-radius: 22px; overflow: hidden; background: #0d1120;
+  box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 0 0 1px var(--line); min-height: 220px; touch-action: pan-y;
+  display: grid; align-items: center; background-color: #05070c; }
+.card img { display: block; width: 100%; height: auto; max-height: 68vh; object-fit: contain; background: #05070c;
+  transition: opacity .45s ease; }
+.card img.fade { opacity: 0; }
+.card .status { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center;
+  color: var(--mist); font-size: 15px; }
+.card .status.err { color: var(--danger); }
+.shimmer { position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(143,180,255,.08) 50%, transparent 70%);
+  background-size: 220% 100%; animation: sh 1.4s linear infinite; }
+@keyframes sh { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.play { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 12px 22px; border-radius: 999px;
+  background: rgba(6,8,15,.75); border: 1px solid rgba(255,255,255,.2); font-weight: 700; font-size: 15px; text-decoration: none; white-space: nowrap; }
+.chip { position: absolute; left: 12px; top: 12px; padding: 5px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; background: rgba(6,8,15,.6); color: var(--glow); border: 1px solid rgba(143,180,255,.3); }
+
+/* варианты */
+.variants { display: flex; gap: 9px; overflow-x: auto; padding: 14px 2px 4px; scrollbar-width: none; }
+.variants > :first-child { margin-left: auto; }
+.variants > :last-child { margin-right: auto; }
+.variants::-webkit-scrollbar { display: none; }
+.v { flex: 0 0 auto; display: grid; gap: 5px; justify-items: center; }
+.v .th { width: 56px; height: 42px; border-radius: 10px; background: #151b2b center/cover no-repeat; opacity: .5;
+  box-shadow: 0 0 0 1px var(--line); transition: opacity .2s, box-shadow .2s; }
+.v .yr { font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.v.sel .th { opacity: 1; box-shadow: 0 0 0 2px var(--glow); }
+.v.sel .yr { color: var(--ink); font-weight: 700; }
+.vhint { text-align: center; font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+/* текст */
+.info { margin-top: 18px; }
+h1 { font-size: 26px; line-height: 1.15; margin: 0; letter-spacing: -.015em; text-wrap: balance; font-weight: 750; }
+.meta { margin-top: 8px; font-size: 12.5px; color: var(--dim); line-height: 1.45; }
+.meta b { color: var(--mist); font-weight: 600; }
+.desc { margin-top: 14px; font-size: 16px; line-height: 1.6; color: var(--mist); max-width: 65ch; }
+.desc.clamp { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.more { margin-top: 6px; color: var(--glow); font-size: 14px; font-weight: 600; padding: 6px 0; }
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.pill { padding: 9px 14px; border-radius: 999px; font-size: 14px; background: rgba(255,255,255,.06); border: 1px solid var(--line);
+  text-decoration: none; color: var(--ink); }
+.pill.on { color: var(--glow); border-color: rgba(143,180,255,.35); }
+
+/* нижняя панель */
+.dock { position: fixed; z-index: 5; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); width: min(520px, calc(100% - 32px));
+  display: grid; grid-template-columns: 1fr 1.25fr 1fr; gap: 6px; padding: 6px; border-radius: 22px;
+  background: var(--panel); border: 1px solid var(--line); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4); }
+.dock button { height: 48px; border-radius: 16px; font-size: 14px; font-weight: 600; color: var(--mist); display: grid; place-items: center; line-height: 1.1; }
+.dock button small { display: block; font-size: 10.5px; font-weight: 500; color: var(--dim); margin-top: 2px; }
+.dock .main { background: var(--glow); color: #0a1020; font-size: 15px; }
+.dock .main small { color: rgba(10,16,32,.65); }
+.dock button:active { transform: scale(.97); }
+.dock .gal.on { color: var(--glow); }
+
+.toast { position: fixed; z-index: 6; left: 50%; transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); padding: 10px 16px; border-radius: 14px; font-size: 14px;
+  background: rgba(20,25,40,.95); border: 1px solid var(--line); transition: all .25s ease; max-width: calc(100% - 32px); text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* полноэкранный просмотр */
+.viewer { position: fixed; inset: 0; z-index: 10; background: #000; display: grid; place-items: center; }
+.viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.viewer .close { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 14px); top: calc(env(safe-area-inset-top, 0px) + 10px);
+  width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,.12); font-size: 20px; }
+.viewer .hint { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); left: 0; right: 0; text-align: center; color: var(--dim); font-size: 12px; }
+
+@media (min-width: 700px) { h1 { font-size: 30px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="backdrop" id="backdrop"></div>
+<div class="shade"></div>
+
+<main class="app">
+  <header class="top">
+    <button class="arrow" id="prev" aria-label="Предыдущий день">‹</button>
+    <label class="date-btn">
+      <span class="eyebrow" id="eyebrow">Фото дня NASA</span>
+      <span class="date" id="dateText">…</span>
+      <input type="date" id="datePick" min="1995-06-16" aria-label="Выбрать дату">
+    </label>
+    <button class="arrow" id="next" aria-label="Следующий день">›</button>
+  </header>
+
+  <section class="stage">
+    <div class="card" id="card">
+      <img id="photo" alt="" class="fade">
+      <div class="shimmer" id="shimmer"></div>
+      <div class="status" id="status" hidden></div>
+    </div>
+    <div class="variants" id="variants" hidden></div>
+    <div class="vhint" id="vhint" hidden>этот же день в другие годы</div>
+  </section>
+
+  <section class="info">
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+    <p class="desc clamp" id="desc"></p>
+    <button class="more" id="more" hidden>читать полностью</button>
+    <div class="links">
+      <button class="pill" id="langBtn">English</button>
+      <a class="pill" id="srcLink" href="https://science.nasa.gov/apod/" target="_blank" rel="noopener">на сайте NASA ↗</a>
+      <a class="pill" id="hdLink" href="#" target="_blank" rel="noopener" hidden>оригинал ↗</a>
+    </div>
+  </section>
+</main>
+
+<nav class="dock">
+  <button id="today">сегодня</button>
+  <button class="main" id="random">случайно<small id="randSub">Млечный Путь</small></button>
+  <button class="gal" id="galaxy">✦ галактики</button>
+</nav>
+<div class="toast" id="toast"></div>
+<div class="viewer" id="viewer" hidden>
+  <img id="viewerImg" alt="">
+  <button class="close" id="viewerClose" aria-label="Закрыть">✕</button>
+  <div class="hint">удерживайте фото, чтобы сохранить в «Фото»</div>
+</div>
+
+<script>
+"use strict";
+const FIRST = "1995-06-16";
+const MIN_NICE_YEAR = 2004;
+const MONTHS = ["января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const $ = (id) => document.getElementById(id);
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+
+const state = {
+  day: null,            // выбранная дата (строка YYYY-MM-DD)
+  current: null,        // показанный вариант
+  variants: [],
+  galaxy: store.get("galaxy", true),
+  lang: store.get("lang", "ru"),
+  info: null,
+  req: 0,
+  expanded: false,
+};
+let gdates = [], gtier = new Map(), gpool = { 1: [], 2: [] };
+const infoCache = new Map(), trCache = new Map();
+
+// ---------- даты ----------
+const iso = (d) => d.toISOString().slice(0, 10);
+const parseIso = (s) => new Date(s + "T12:00:00Z");
+const addDays = (s, n) => { const d = parseIso(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); };
+function todayIso() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function human(s) { const [y, m, d] = s.split("-").map(Number); return `${d} ${MONTHS[m - 1]} ${y}`; }
+
+// ---------- данные NASA ----------
+function decode(s) { const t = document.createElement("textarea"); t.innerHTML = s; return t.value; }
+function stripHtml(s) {
+  const doc = new DOMParser().parseFromString((s || "").replace(/<br\s*\/?>/gi, "\n"), "text/html");
+  return (doc.body.textContent || "").replace(/ /g, " ").replace(/[ \t]+/g, " ").replace(/\n\s*\n+/g, "\n\n").trim();
+}
+function sized(url, w) {
+  if (!url || /\.gif$/i.test(url)) return url;
+  url = url.replace("/content/dam/science/", "/dynamicimage/assets/science/");
+  return url.includes("/dynamicimage/") ? `${url}?w=${w}&h=${w}&fit=clip` : url;
+}
+function parseEntry(raw) {
+  const page = raw.basic_html || "";
+  let m = page.match(/<a href="([^"]+)">\s*<IMG SRC="([^"]+)"/i) || page.match(/<IMG SRC="([^"]+)"/i);
+  let full = m ? decode(m[1]).split("?")[0] : null;
+  const media = raw.media_type || "image";
+  let base = media === "image" ? full : null;
+  if (!base && (raw.hdurl || "").includes("/cds/apod/")) base = decode(raw.hdurl).split("?")[0];
+  return {
+    date: raw.date,
+    title: decode(raw.title || ""),
+    explanation: stripHtml(raw.explanation).replace(/^Explanation:\s*/, ""),
+    credit: stripHtml(raw.copyright || raw.credit || ""),
+    media,
+    base,
+    full: media === "image" ? full : null,
+    link: raw.permalink || "https://science.nasa.gov/apod/",
+  };
+}
+class NotFound extends Error {}
+async function fetchInfo(day) {
+  if (infoCache.has(day)) return infoCache.get(day);
+  const yymmdd = day.slice(2).replace(/-/g, "");
+  const r = await fetch(`https://science.nasa.gov/wp-json/wp/v2/apod-basic/${yymmdd}`);
+  if (r.status === 404) throw new NotFound("за эту дату на сайте NASA ничего нет");
+  if (!r.ok) throw new Error(`сайт NASA ответил ошибкой ${r.status}, попробуйте позже`);
+  const info = parseEntry(await r.json());
+  infoCache.set(day, info);
+  return info;
+}
+async function fetchTr(day) {
+  const y = day.slice(0, 4);
+  if (!trCache.has(y)) trCache.set(y, fetch(`tr/${y}.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+  return (await trCache.get(y))[day] || null;
+}
+
+// ---------- галактики ----------
+async function loadGalaxies() {
+  try {
+    const j = await (await fetch("galaxy.json")).json();
+    gdates = j.d.map((x) => x[0]);
+    gtier = new Map(j.d);
+    gpool = { 1: j.d.filter((x) => x[1] === 1 && +x[0].slice(0, 4) >= MIN_NICE_YEAR).map((x) => x[0]),
+              2: j.d.filter((x) => x[1] === 2 && +x[0].slice(0, 4) >= MIN_NICE_YEAR).map((x) => x[0]) };
+  } catch { gdates = []; }
+}
+const galaxyOn = () => state.galaxy && gdates.length > 0;
+function nearestGalaxy(day) {
+  const t = todayIso();
+  let best = null, bestDiff = Infinity;
+  for (const g of gdates) {
+    if (g > t) break;
+    const diff = Math.abs(parseIso(g) - parseIso(day));
+    if (diff < bestDiff) { best = g; bestDiff = diff; }
+  }
+  return best;
+}
+function randomGalaxy() {
+  const tier = Math.random() < 0.6 ? 1 : 2;
+  const pool = gpool[tier].length ? gpool[tier] : gdates;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+function randomAny() {
+  const a = parseIso(FIRST), b = parseIso(todayIso());
+  return iso(new Date(a.getTime() + Math.random() * (b - a)));
+}
+function variantsFor(day) {
+  const md = day.slice(5);
+  const others = gdates.filter((d) => d.slice(5) === md && d !== day && d <= todayIso());
+  others.sort((a, b) => ((+a.slice(0, 4) < MIN_NICE_YEAR) - (+b.slice(0, 4) < MIN_NICE_YEAR))
+    || ((gtier.get(a) || 2) - (gtier.get(b) || 2)) || b.localeCompare(a));
+  return [day, ...others.slice(0, 4)].sort();
+}
+
+// ---------- отрисовка ----------
+let toastTimer;
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2400);
+}
+function setStatus(msg, err = false) {
+  const s = $("status"); s.hidden = !msg; s.textContent = msg || ""; s.classList.toggle("err", err);
+}
+function renderVariants() {
+  const box = $("variants");
+  const show = state.variants.length > 1;
+  box.hidden = !show; $("vhint").hidden = !show;
+  if (!show) { box.innerHTML = ""; return; }
+  box.innerHTML = "";
+  state.variants.forEach((d, i) => {
+    const b = document.createElement("button");
+    b.className = "v" + (d === state.current ? " sel" : "");
+    b.setAttribute("aria-label", `Вариант ${i + 1}: ${human(d)}`);
+    b.innerHTML = `<span class="th"></span><span class="yr">${d.slice(0, 4)}</span>`;
+    b.onclick = () => { if (d !== state.current) show_(d, { keepGroup: true }); };
+    box.appendChild(b);
+    fetchInfo(d).then((info) => { if (info.base) b.querySelector(".th").style.backgroundImage = `url("${sized(info.base, 300)}")`; }).catch(() => {});
+  });
+}
+function renderText() {
+  const info = state.info; if (!info) return;
+  const tr = info.tr;
+  const ru = state.lang === "ru" && tr;
+  $("title").textContent = ru ? tr.t : info.title;
+  $("desc").textContent = ru ? tr.e : info.explanation;
+  const parts = [`<b>${human(info.date)}</b>`];
+  if (info.credit) parts.push(escapeHtml(info.credit));
+  if (info.media !== "image") parts.push("видео");
+  if (state.note) parts.push(escapeHtml(state.note));
+  if (state.lang === "ru" && !tr) parts.push("перевод есть для дней с галактиками");
+  else if (ru) parts.push("автоперевод");
+  $("meta").innerHTML = parts.join("  ·  ");
+  $("langBtn").textContent = state.lang === "ru" ? "English" : "Русский";
+  const d = $("desc"); d.classList.toggle("clamp", !state.expanded);
+  setTimeout(() => { $("more").hidden = state.expanded || d.scrollHeight <= d.clientHeight + 2; }, 0);
+  $("srcLink").href = info.link;
+  $("hdLink").hidden = !info.full; if (info.full) $("hdLink").href = info.full;
+}
+function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function renderTop() {
+  const shown = state.current || state.day || todayIso();
+  $("dateText").textContent = human(shown);
+  $("datePick").value = shown;
+  $("datePick").max = todayIso();
+  $("eyebrow").textContent = galaxyOn() ? "✦ Космос дня" : "Фото дня NASA";
+  $("galaxy").classList.toggle("on", state.galaxy);
+  $("galaxy").innerHTML = state.galaxy ? "✦ галактики<small>вкл</small>" : "✧ все дни<small>галактики выкл</small>";
+  $("randSub").textContent = galaxyOn() ? "Млечный Путь" : "любой день";
+}
+
+// ---------- загрузка ----------
+async function show_(day, { keepGroup = false, note = null, fallback = null } = {}) {
+  if (day < FIRST) return toast("архив NASA начинается с 16 июня 1995");
+  if (day > todayIso()) return toast("фото из будущего пока нет ✦");
+  const req = ++state.req;
+  state.note = note; state.expanded = false;
+  if (!keepGroup) { state.day = day; state.variants = variantsFor(day); }
+  state.current = day;
+  renderTop(); renderVariants();
+  $("shimmer").hidden = false; setStatus("");
+  $("photo").classList.add("fade");
+  let info, cur = day, tries = 0;
+  for (;;) {
+    try { info = await fetchInfo(cur); break; }
+    catch (e) {
+      if (req !== state.req) return;
+      if (e instanceof NotFound && fallback && tries++ < 5) { cur = fallback(cur); continue; }
+      $("shimmer").hidden = true;
+      $("title").textContent = ""; $("meta").textContent = ""; $("desc").textContent = "";
+      return setStatus(e instanceof TypeError ? "нет связи с сайтом NASA — проверьте интернет" : e.message, true);
+    }
+  }
+  if (req !== state.req) return;
+  if (cur !== day) { state.current = cur; if (!keepGroup) { state.day = cur; state.variants = variantsFor(cur); } renderTop(); renderVariants(); }
+  info.tr = await fetchTr(cur);
+  if (req !== state.req) return;
+  state.info = info;
+  renderText();
+  const img = $("photo");
+  document.querySelectorAll(".play,.chip").forEach((n) => n.remove());
+  if (!info.base) {
+    $("shimmer").hidden = true; img.removeAttribute("src");
+    setStatus("в этот день не фото, а видео");
+    addPlay(info); return;
+  }
+  const src = sized(info.base, 1600);
+  const pre = new Image();
+  pre.onload = () => {
+    if (req !== state.req) return;
+    img.src = src; img.alt = info.title;
+    setTimeout(() => img.classList.remove("fade"), 30);
+    $("shimmer").hidden = true;
+    const bd = $("backdrop"); bd.style.backgroundImage = `url("${sized(info.base, 200)}")`; bd.classList.add("on");
+    if (info.media !== "image") addPlay(info);
+    if (galaxyOn() && gtier.get(cur) === 1) addChip("Млечный Путь");
+  };
+  pre.onerror = () => { if (req === state.req) { $("shimmer").hidden = true; setStatus("не удалось загрузить картинку", true); } };
+  pre.src = src;
+}
+function addPlay(info) {
+  const a = document.createElement("a"); a.className = "play"; a.href = info.link; a.target = "_blank"; a.rel = "noopener";
+  a.textContent = "▶  смотреть видео"; $("card").appendChild(a);
+}
+function addChip(text) { const c = document.createElement("span"); c.className = "chip"; c.textContent = text; $("card").appendChild(c); }
+
+// ---------- навигация ----------
+function step(dir) {
+  const from = state.current || state.day;
+  if (galaxyOn()) {
+    const t = todayIso();
+    if (dir > 0) {
+      const nxt = gdates.find((d) => d > from && d <= t);
+      return nxt ? show_(nxt) : toast("дальше галактик пока нет — загляните позже ✦");
+    }
+    const prv = [...gdates].reverse().find((d) => d < from);
+    return prv ? show_(prv) : toast("это самая первая галактика в архиве");
+  }
+  const d = addDays(from, dir);
+  if (d > todayIso()) return toast("фото из будущего пока нет ✦");
+  show_(d);
+}
+function goToday() {
+  if (galaxyOn()) { const g = nearestGalaxy(todayIso()); return show_(g, { note: g !== todayIso() ? "самая свежая галактика" : null }); }
+  show_(todayIso(), { fallback: (d) => addDays(d, -1) });
+}
+function goRandom() {
+  if (galaxyOn()) return show_(randomGalaxy(), { fallback: randomGalaxy });
+  show_(randomAny(), { fallback: randomAny });
+}
+
+$("prev").onclick = () => step(-1);
+$("next").onclick = () => step(1);
+$("today").onclick = goToday;
+$("random").onclick = goRandom;
+$("galaxy").onclick = () => {
+  state.galaxy = !state.galaxy; store.set("galaxy", state.galaxy); renderTop();
+  toast(state.galaxy ? "✦ стрелки и «случайно» — только галактики" : "показываю все дни подряд");
+};
+$("langBtn").onclick = () => { state.lang = state.lang === "ru" ? "en" : "ru"; store.set("lang", state.lang); renderText(); };
+$("more").onclick = () => { state.expanded = true; renderText(); };
+$("datePick").addEventListener("change", (e) => { if (e.target.value) show_(e.target.value); });
+// iOS: открыть календарь по тапу
+document.querySelector(".date-btn").addEventListener("click", () => { try { $("datePick").showPicker(); } catch {} });
+
+// свайпы по фото: влево — дальше, вправо — назад
+let sx = 0, sy = 0, st = 0;
+$("card").addEventListener("touchstart", (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); }, { passive: true });
+$("card").addEventListener("touchend", (e) => {
+  const t = e.changedTouches[0]; const dx = t.clientX - sx, dy = t.clientY - sy;
+  if (Math.abs(dx) > 50 && Math.abs(dy) < 60 && Date.now() - st < 600) { step(dx < 0 ? 1 : -1); e.preventDefault(); }
+  else if (Math.abs(dx) < 8 && Math.abs(dy) < 8 && $("photo").src && !e.target.closest(".play")) openViewer();
+});
+$("card").addEventListener("click", (e) => { if (!("ontouchstart" in window) && $("photo").src && !e.target.closest(".play")) openViewer(); });
+function openViewer() {
+  const info = state.info; if (!info || !info.base) return;
+  $("viewerImg").src = sized(info.base, 2400); $("viewer").hidden = false;
+}
+$("viewerClose").onclick = () => { $("viewer").hidden = true; };
+$("viewer").addEventListener("click", (e) => { if (e.target.id === "viewer") $("viewer").hidden = true; });
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.key === "ArrowLeft") step(-1); else if (e.key === "ArrowRight") step(1);
+  else if (e.key === "Escape") $("viewer").hidden = true;
+  else if (/^[1-5]$/.test(e.key) && state.variants[+e.key - 1]) show_(state.variants[+e.key - 1], { keepGroup: true });
+});
+
+// ---------- старт ----------
+(async () => {
+  renderTop();
+  await loadGalaxies();
+  const fromHash = /^#\d{4}-\d{2}-\d{2}$/.test(location.hash) ? location.hash.slice(1) : null;
+  if (fromHash) show_(fromHash); else goToday();
+})();
+</script>
+</body>
+</html>
